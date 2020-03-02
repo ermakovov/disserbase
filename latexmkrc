@@ -6,6 +6,10 @@ $ALTFONT = $ENV{ALTFONT};
 $ALTFONT //= '';
 $USEBIBER = $ENV{USEBIBER};
 $USEBIBER //= '';
+$USEFOOTCITE = $ENV{USEFOOTCITE};
+$USEFOOTCITE //= '';
+$BIBGROUPED = $ENV{BIBGROUPED};
+$BIBGROUPED //= '';
 $IMGCOMPILE = $ENV{IMGCOMPILE};
 $IMGCOMPILE //= '';
 $NOTESON = $ENV{NOTESON};
@@ -18,6 +22,10 @@ $REGEXDIRS = $ENV{REGEXDIRS};
 $REGEXDIRS //= '. Dissertation Synopsis Presentation';
 $TIMERON = $ENV{TIMERON};
 $TIMERON //= '0';
+$TIKZFILE = $ENV{TIKZFILE};
+$TIKZFILE //= '';
+$USEDEV = $ENV{USEDEV};
+$USEDEV //= '';
 
 
 $texargs = '';
@@ -37,16 +45,28 @@ if ($USEBIBER ne '') {
     $texargs = $texargs . '\newcounter{bibliosel}' .
         '\setcounter{bibliosel}' . '{' . $USEBIBER . '}';
 }
+if ($USEFOOTCITE ne '') {
+    $texargs = $texargs . '\newcounter{usefootcite}' .
+        '\setcounter{usefootcite}' . '{' . $USEFOOTCITE . '}';
+}
+if ($BIBGROUPED ne '') {
+    $texargs = $texargs . '\newcounter{bibgrouped}' .
+        '\setcounter{bibgrouped}' . '{' . $BIBGROUPED . '}';
+}
 if ($IMGCOMPILE ne '') {
     $texargs = $texargs . '\newcounter{imgprecompile}' .
         '\setcounter{imgprecompile}' . '{' . $IMGCOMPILE . '}';
 }
-if ($IMGCOMPILE eq '1') {
+if ($IMGCOMPILE ne '') {
    $LATEXFLAGS = $LATEXFLAGS . ' -shell-escape'
 }
 if ($NOTESON ne '') {
     $texargs = $texargs . '\newcounter{presnotes}' .
         '\setcounter{presnotes}' . '{' . $NOTESON . '}';
+}
+if ($TIKZFILE ne '') {
+    $texargs = $texargs . '\def' . '\tikzfilename' .
+	'{' . $TIKZFILE . '}';
 }
 
 # set options for all *latex
@@ -63,6 +83,12 @@ if ( (! defined &set_tex_cmds) || (! defined $pre_tex_code) ) {
     $pre_tex_code = $texargs;
 }
 
+if ($USEDEV ne '') {
+    $pdflatex =~ s/pdflatex/pdflatex-dev/g;
+    $xelatex =~ s/xelatex/xelatex-dev/g;
+    $lualatex =~ s/lualatex/lualatex-dev/g;
+}
+
 $biber = 'biber ' . $BIBERFLAGS . ' %O %S';
 $bibtex = 'bibtex8 -B -c utf8cyrillic.csf %B';
 
@@ -76,7 +102,7 @@ $recorder = 1;
 $bibtex_use = 2;
 
 # extensions to clean with -c flag
-$clean_ext = '%R.bbl %R.aux %R.lof %R.log %R.lot %R.fls %R.out %R.toc %R.run.xml %R.xdv %R.snm %R.nav';
+$clean_ext = '%R.bbl %R.aux %R.lof %R.log %R.lot %R.fls %R.out %R.toc %R.run.xml %R.xdv %R.snm %R.nav %R.fmt';
 
 # extensions to clean with -C flag
 $clean_full_ext = '%R.bbl %R.aux %R.lof %R.log %R.lot %R.fls %R.out %R.toc %R.run.xml %R.xdv %R.snm %R.nav';
@@ -93,8 +119,7 @@ $remove_dryrun = 0;
                  '*.fls',
                  '*.out',
                  '*.toc',
-                 'mylatexformat.fmt',
-                 'mylatexformat.log');
+                 '*.fmt');
 ## Intermediate documents:
 # these rules might exclude image files for figures etc.
 # *.ps
@@ -370,24 +395,27 @@ sub regexp_cleanup {
     }
 }
 
-sub cleanup1 {
-    # Usage: cleanup1( directory, exts_without_period, ... )
-    #
-    # The directory and the root file name are fixed names, so I must escape
-    #   any glob metacharacters in them:
-    my $dir = fix_pattern( shift );
-    my $root_fixed = fix_pattern( $root_filename );
-    foreach (@_) {
-        my $name = /%R/ ? $_ : "%R.$_";
-	$name =~ s/%R/${root_fixed}/;
-	$name = $dir.$name;
-        if ($remove_dryrun == 0) {
-            unlink_or_move( glob( "$name" ) );
-        } else {
-            print "Would be removed: $name\n";
+{
+    no warnings 'redefine';
+    sub cleanup1 {
+        # Usage: cleanup1( directory, exts_without_period, ... )
+        #
+        # The directory and the root file name are fixed names, so I must escape
+        #   any glob metacharacters in them:
+        my $dir = fix_pattern( shift );
+        my $root_fixed = fix_pattern( $root_filename );
+        foreach (@_) {
+            my $name = /%R/ ? $_ : "%R.$_";
+            $name =~ s/%R/${root_fixed}/;
+            $name = $dir.$name;
+            if ($remove_dryrun == 0) {
+                unlink_or_move( glob( "$name" ) );
+            } else {
+                print "Would be removed: $name\n";
+            }
         }
-    }
-    if ($cleanup_mode == 1) {
-        regexp_cleanup();
-    }
-} #END cleanup1
+        if ($cleanup_mode == 1) {
+            regexp_cleanup();
+        }
+    } #END cleanup1
+}
